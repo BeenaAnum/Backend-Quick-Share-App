@@ -6,7 +6,7 @@ const app = express();
 // Middleware
 // app.use(cors());
 app.use(cors({
-  origin: "*",
+  origin: "https://frontend-quick-share-app.vercel.app/",
   credentials: true
 }));
 app.use(express.json());
