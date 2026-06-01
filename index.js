@@ -5,36 +5,44 @@ require('dotenv').config();
 
 const app = express();
 
-/* =========================================
-   CORS CONFIGURATION
-========================================= */
+/* =========================
+   MIDDLEWARE
+========================= */
 
 app.use(cors({
   origin: 'https://frontend-quick-share-app.vercel.app',
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['GET', 'POST'],
   credentials: true
 }));
 
-// Handle preflight requests
-app.options('*', cors());
-
-/* =========================================
-   MIDDLEWARE
-========================================= */
-
 app.use(express.json());
 
-/* =========================================
+/* =========================
    MONGODB CONNECTION
-========================================= */
+========================= */
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB Connected'))
-  .catch(err => console.error('❌ DB Connection Error:', err));
+let isConnected = false;
 
-/* =========================================
-   SCHEMA & MODEL
-========================================= */
+const connectDB = async () => {
+  if (isConnected) return;
+
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+
+    isConnected = true;
+
+    console.log('✅ MongoDB Connected');
+
+  } catch (err) {
+    console.error('❌ MongoDB Error:', err);
+  }
+};
+
+connectDB();
+
+/* =========================
+   SCHEMA
+========================= */
 
 const ShareSchema = new mongoose.Schema({
   ip: String,
@@ -42,35 +50,43 @@ const ShareSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 1800 // 30 minutes
+    expires: 1800
   }
 });
 
-const Share = mongoose.model('Share', ShareSchema);
+const Share = mongoose.models.Share || mongoose.model('Share', ShareSchema);
 
-/* =========================================
+/* =========================
    ROUTES
-========================================= */
+========================= */
 
-// Home Route
 app.get('/', async (req, res) => {
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
   try {
+    const ip =
+      req.headers['x-forwarded-for'] ||
+      req.socket.remoteAddress;
+
     const data = await Share.findOne({ ip });
+
     res.json(data || { text: '' });
+
   } catch (err) {
-    res.status(500).json({ error: 'Server Error' });
+    console.error(err);
+
+    res.status(500).json({
+      error: 'Server Error'
+    });
   }
 });
 
-// Save Route
 app.post('/save', async (req, res) => {
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-  const { text } = req.body;
-
   try {
+    const ip =
+      req.headers['x-forwarded-for'] ||
+      req.socket.remoteAddress;
+
+    const { text } = req.body;
+
     const updated = await Share.findOneAndUpdate(
       { ip },
       {
@@ -87,13 +103,16 @@ app.post('/save', async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Save Error' });
+
+    res.status(500).json({
+      error: 'Save Error'
+    });
   }
 });
 
-/* =========================================
-   EXPORT FOR VERCEL
-========================================= */
+/* =========================
+   EXPORT
+========================= */
 
 module.exports = app;
 // const express = require('express');
